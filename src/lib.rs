@@ -3,6 +3,8 @@
 mod bindings;
 use bindings::root::xatlas;
 
+use std::fmt;
+use std::fmt::write;
 use std::ops::Drop;
 
 use crate::bindings::*;
@@ -157,6 +159,21 @@ pub struct Mesh<'a> {
 }
 
 #[derive(Debug)]
+pub enum AddMeshError {
+    IndexOutOfRange,
+    InvalidIndexCount,
+}
+
+impl fmt::Display for AddMeshError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::IndexOutOfRange => write!(f, "index out of range"),
+            Self::InvalidIndexCount => write!(f, "invalid index count"),
+        }
+    }
+}
+
+#[derive(Debug)]
 pub struct Xatlas {
     handle: *mut root::xatlas::Atlas,
 }
@@ -187,7 +204,7 @@ impl<'a> Xatlas {
         }
     }
 
-    pub fn add_mesh(&self, decl_param: &MeshDecl) {
+    pub fn add_mesh(&self, decl_param: &MeshDecl) -> Result<(), AddMeshError> {
         let decl = xatlas::MeshDecl {
             vertexCount: decl_param.vertex_count,
             vertexPositionData: decl_param.vertex_position_data.as_ptr() as _,
@@ -222,8 +239,12 @@ impl<'a> Xatlas {
             },
         };
 
-        unsafe {
-            xatlas::AddMesh(self.handle, &decl);
+        let error = unsafe { xatlas::AddMesh(self.handle, &decl) };
+        match error {
+            root::xatlas::AddMeshError_Enum_Success => Ok(()),
+            root::xatlas::AddMeshError_Enum_IndexOutOfRange => Err(AddMeshError::IndexOutOfRange),
+            root::xatlas::AddMeshError_Enum_InvalidIndexCount => Err(AddMeshError::InvalidIndexCount),
+            _ => unreachable!(),
         }
     }
 
